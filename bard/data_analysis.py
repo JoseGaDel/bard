@@ -26,7 +26,6 @@ import json
 from shapely.geometry import Polygon, box
 import geopandas as gpd
 from math import isclose
-from core import *
 
 import folium
 from folium.plugins.draw import Draw
