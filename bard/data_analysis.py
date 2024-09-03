@@ -261,7 +261,7 @@ def density(bounding_boxes, base_parameters, **kwargs):
     (if provided) and the inner list to bounding boxes.
     '''
     import concurrent.futures
-    from core import APIParser
+    from bard import APIParser
 
     time_parameters = kwargs.get('time_parameters', [{}])  # Default to a list with an empty dict
 
@@ -318,7 +318,7 @@ def periodic_report(parameters: dict, no_overlap: bool = False, period: int = No
     periodic_report(parameters, weeks=1.44347718254)
     periodic_report(parameters, period=10)
     '''
-    from core import APIParser
+    from bard import APIParser
 
     if not parameters:
         raise ValueError("No parameters provided for the API call.")

@@ -7,6 +7,7 @@ flexible and easy to use, allowing users to perform complex operations on JSON d
 import json
 from typing import List, Dict, Any, Callable
 from operator import itemgetter
+import re
 
 class QueryInspector:
     def __init__(self, data: Dict[str, Any]):
