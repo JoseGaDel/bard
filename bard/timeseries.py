@@ -15,24 +15,21 @@ class BiodiversityConfig:
     Configuration class for biodiversity data processing and visualization.
     
     Attributes:
-        filter_field (str): Field used for filtering observations.
-        filter_value (Any): Value to match in the filter field.
-        heatmap_field (str): Field used for heatmap intensity.
-        popup_field (str): Field used for popup information.
-        heatmap_label (str): Label for the heatmap legend.
-        popup_label (str): Label for the popup information.
+        - filter_function (Callable[[Dict], bool]): Function to filter observations.
+        - heatmap_extraction (Callable[[Dict], float]): Function to extract heatmap values.
+        - popup_extraction (Callable[[Dict], Any]): Function to extract popup values.
+        - heatmap_label (str): Label for the heatmap.
+        - popup_label (str): Label for the popups.
     """
     def __init__(self, 
-                 filter_field: str,
-                 filter_value: Any,
-                 heatmap_field: str,
-                 popup_field: str,
+                 filter_function: Callable[[Dict], bool],
+                 heatmap_extraction: Callable[[Dict], float],
+                 popup_extraction: Callable[[Dict], Any],
                  heatmap_label: str,
                  popup_label: str):
-        self.filter_field = filter_field
-        self.filter_value = filter_value
-        self.heatmap_field = heatmap_field
-        self.popup_field = popup_field
+        self.filter_function = filter_function
+        self.heatmap_extraction = heatmap_extraction
+        self.popup_extraction = popup_extraction
         self.heatmap_label = heatmap_label
         self.popup_label = popup_label
 
@@ -68,7 +65,7 @@ def process_observations(density_results: List[List[Dict]],
 
     return processed_data
 
-def filter_and_extract(data: Dict, config: BiodiversityConfig) -> Dict[str, int]:
+def filter_and_extract(data: Dict, config: BiodiversityConfig) -> Dict[str, Any]:
     """
     Filter and extract relevant data from observations.
     
@@ -77,15 +74,16 @@ def filter_and_extract(data: Dict, config: BiodiversityConfig) -> Dict[str, int]
         - config (BiodiversityConfig): Configuration for filtering and extraction.
     
     Returns:
-        - Dict[str, int]: Extracted heatmap and popup values.
+        - Dict[str, Any]: Extracted heatmap and popup values.
     """
     filtered_data = [
         obs for obs in data.get('results', [])
-        if get_nested_value(obs, config.filter_field) == config.filter_value
+        if config.filter_function(obs)
     ]
     
-    heatmap_value = sum(get_nested_value(obs, config.heatmap_field, 1) for obs in filtered_data)
-    popup_value = len(set(get_nested_value(obs, config.popup_field) for obs in filtered_data if get_nested_value(obs, config.popup_field) is not None))
+    heatmap_value = sum(config.heatmap_extraction(obs) for obs in filtered_data)
+    popup_values = set(config.popup_extraction(obs) for obs in filtered_data)
+    popup_value = len(popup_values) if isinstance(next(iter(popup_values), None), (int, float, str)) else popup_values
     
     return {
         'heatmap_value': heatmap_value,
@@ -128,6 +126,15 @@ def analyze_biodiversity(data: Dict, config: BiodiversityConfig) -> Dict:
     filtered_data = [obs for obs in data.get('results', []) if config.filter_function(obs)]
     extracted_data = config.extract_function(filtered_data)
     return extracted_data
+
+def default_filter(obs: Dict[str, Any]) -> bool:
+    return obs.get('taxon', {}).get('iconic_taxon_name') == 'Mollusca'
+
+def default_heatmap_extraction(obs: Dict[str, Any]) -> int:
+    return obs.get('observations_count', 1)
+
+def default_popup_extraction(obs: Dict[str, Any]) -> str:
+    return obs.get('taxon', {}).get('name')
 
 
 def create_time_series_maps(processed_data: List[List[Dict]], 

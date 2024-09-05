@@ -1,3 +1,25 @@
+# Table of Contents
+
+1. [Core components](#core-components)
+   1. [API information](#api-information)
+   2. [Lousy Input](#lousy-input)
+      - [Strict Matching](#strict-matching)
+   3. [Safe Dictionary](#safe-dictionary)
+   4. [Pagination](#pagination)
+   5. [Authentication](#authentication)
+   6. [Multiton Pattern](#multiton-pattern)
+2. [Data Analysis](#data-analysis)
+   1. [Time series](#time-series)
+   2. [Geographic data](#geographic-data)
+3. [JSON manipulation](#json-manipulation)
+   1. [QueryInspector](#queryinspector)
+   2. [path_finder](#path-finder)
+4. [Data Visualization](#data-visualization)
+   1. [Key Components](#key-components)
+   2. [Custom Data Extraction](#custom-data-extraction)
+      - [Customizing BiodiversityConfig](#customizing-biodiversityconfig)
+      - [Usage](#usage)
+
 # Core components
 The simplest example to get you started with BARD, only requires the following:
 
@@ -17,6 +39,36 @@ print(result)
 ```
 
 The core components of this module are the `APIParser` class and the parameters dictionary. The `APIParser` class is the main class of the module, and it is responsible for handling the API calls, authentication, and response parsing. The `APIParser.get_parameters` method give us a dictionary with the parameters needed for the API call. This way, we do not need to worry about constructing API calls and just to set what parameters we want to use. The rest of the module will use this parameters dictionary to understand what we want to get from the API.
+
+## API information
+
+The `APIParser` has a couple of methods to get information from the API documentation. For instance, we can get a list of available API calls with
+
+```python
+available_calls = api_parser.api_calls()
+```
+
+We can also get a table with the description of a specific API call
+
+```python
+api_parser.usecase("messages")
+```
+
+This will give as the description and the table of the call like
+
+API Call: GET /messages
+Description: Show the user's inbox or sent box
+
+
+| Parameter | Description | Parameter Type | Data Type |
+|:---:|:---:|:---:|:---:|
+| page | Pagination `page` number | query | string |
+| box | Whether to view messages the user has received (default) or messages the user has sent | query | string |
+| q | Search query for subject and body | query | string |
+| user_id | User ID or username of correspondent to filter by | query | string |
+| threads | Groups results by `thread_id`, only shows the latest message per thread, and includes a `thread_messages_count` attribute showing the total number of messages in that thread. Note that this will not work with the `q` param, and it probably should only be used with `box=any` because the `thread_messages_count` will be inaccurate when you restrict it to `inbox` or `sent`. | query | boolean |
+
+
 
 ## Lousy Input
 
@@ -321,3 +373,452 @@ parser2 = APIParser(api_url="https://api.minka-sdg.org/v1" , verbosity=3, instan
 # Another alternative to initialize the new parser is:
 parser2 = APIParser.get_instance("parser2", api_url="https://api.minka-sdg.org/v1", verbosity=3)
 ```
+
+# Data Analysis
+
+## Time series
+
+We can use the function `periodic_report` to retrieve to perform a series of API calls with a certain period. To use this, we need to set a parameter from an API call that works as a lower bound for observations and another that will set the upper bound. When we call the function, we can set what period we want to use and it will split the time range in periods of the specified length and will return a list with a parameters dictionary in each element with the correct date parameters to get the data for that period.
+
+```python
+api_parser = APIParser(verbosity=1)
+param_dict = api_parser.get_parameters("identifications similar species")
+
+
+# Test with date
+param_dict['d1'] = "2023-01-01"
+param_dict['d2'] = "2023-01-31"
+
+# Imagine we want a time window of 1 week, 3 days, 2h30m15s. We can use periodic_report like this:
+periodic_report(param_dict, weeks=1, days=3, hours=2, minutes=30, seconds=15)
+# Or this, which is the equivalent in weeks to the previous one
+periodic_report(param_dict, weeks=1.44347718254)
+# If we want to divide the period in 10 equal parts, we can use the following:
+periodic_report(param_dict, period=10)
+```
+
+The function will take care of leap years, months with different number of days, etc. Imagine we want to get a weekly report of the month of January 2023, which we have specified above with the parameters `d1` and `d2`. By default, the function will split the period in windows of one week such that the first window will be from `d1` to `d1 + 1 week`, the second window will be from `d1 + 1 week` to `d1 + 2 weeks`, and so on, in such a way that the last element of one period coincides with the first element of the next, i.e., there are overlap between period and thus no gaps. We can change this behavior by setting the parameter `no_overlap` to `True`, in which case the periods will be disjoint. we can use the following to test the different behaviors:
+
+```python
+# let's see the results for a period of 7 days. If we don't set no_overlap to True, the periods will overlap
+result_with_overlap = periodic_report(param_dict, days=7)
+result_with_overlap = [ {k: v for k, v in d.items() if v} for d in result_with_overlap ]
+print("With overlap:")
+print(json.dumps(result_with_overlap, indent=2))
+
+# now we set no_overlap to True, so the periods will not overlap.
+result_without_overlap = periodic_report(param_dict, days=7, no_overlap=True)
+result_without_overlap = [ {k: v for k, v in d.items() if v} for d in result_without_overlap ]
+print("\nWithout overlap:")
+print(json.dumps(result_without_overlap, indent=2))
+```
+
+The output will look like this:
+
+```
+With overlap:
+[
+  {
+    "d1": "2023-01-01",
+    "d2": "2023-01-08",
+    "API_call": "/identifications/similar_species"
+  },
+  {
+    "d1": "2023-01-08",
+    "d2": "2023-01-15",
+    "API_call": "/identifications/similar_species"
+  },
+  {
+    "d1": "2023-01-15",
+    "d2": "2023-01-22",
+    "API_call": "/identifications/similar_species"
+  },
+  {
+    "d1": "2023-01-22",
+    "d2": "2023-01-29",
+    "API_call": "/identifications/similar_species"
+  },
+  {
+    "d1": "2023-01-29",
+    "d2": "2023-01-31",
+    "API_call": "/identifications/similar_species"
+  }
+]
+
+Without overlap:
+[
+  {
+    "d1": "2023-01-01",
+    "d2": "2023-01-07",
+    "API_call": "/identifications/similar_species"
+  },
+  {
+    "d1": "2023-01-08",
+    "d2": "2023-01-14",
+    "API_call": "/identifications/similar_species"
+  },
+  {
+    "d1": "2023-01-15",
+    "d2": "2023-01-21",
+    "API_call": "/identifications/similar_species"
+  },
+  {
+    "d1": "2023-01-22",
+    "d2": "2023-01-28",
+    "API_call": "/identifications/similar_species"
+  },
+  {
+    "d1": "2023-01-29",
+    "d2": "2023-01-31",
+    "API_call": "/identifications/similar_species"
+  }
+]
+```
+
+This function also supports parameters of type date-time:
+
+```python
+param_dict['created_d1'] = "2023-01-01T00:00:00"
+param_dict['created_d2'] = "2023-01-31T23:59:59"
+
+result_with_overlap_datetime = periodic_report(param_dict, days=7)
+```
+
+## Geographic data
+
+Imagine we want to get a certain observation for unit of area in a specific area of interest. We would need to get the coordinates of each bounding box, insert them in the parameters, perform the API call, and repeat until we have covered the entire area. Instead of doing this manually, we can use following functions:
+
+```python
+parameters  = api_parser.get_parameters('observations')
+
+# This will launch a map where we can select the area of interest and save the coordinates of the bounding boxes
+coordinates = launch_map(save_polygon=True)
+
+# The method will return a list where each element is a list of coordinates of the bounding box,
+# and the resulting map. Remember to unpack them.
+bounding_boxes, _ = coordinates.get_grid(square_area=1, show_result=True, tolerance=0.03)
+
+parameters.update({
+    "year": 2023,
+    "day": 10,
+    "month": 3,
+})
+
+# We can use the density function to take care of the API calls. This function calls make_request internally
+# for each bounding box using concurrent.futures to speed up the process
+result = density(bounding_boxes, parameters)
+
+
+# Alternatively, we can use pass this function to make_request and it will forward it to the execution endpoint,
+# where it will be executed, and we will get back the results.
+variables = (bounding_boxes, parameters)
+result = api_parser.make_request(user_function=density, variables=variables)
+```
+
+In the `get_grid` method, we can set the `square_area` parameter to the desired area of the bounding box in square kilometers. The `tolerance` parameter is used to set what is the minimum fraction a bounding box needs to intersect the polygon in order to be included. The default is 0, which is the most permissive, and will include all bounding boxes that intersect the polygon, no matter how minimal this intersection is. If we set a tolerance of 1, the program will not include any bounding box that is not fully contained within the polygon, so there will not be any area outside the polygon but will mean there are bigger uncovered gaps inside the polygon. You can play with this parameter and the `square_area` to get a finer grained division of the area. You can also choose a different area unit with the `area_units` parameter. COmpatible units are square kilometers (`km2`), hectares (`ha`, `hm2`), square decametre (`dam2`),  square meters (`m2`), acres (`acres`), square feet (`sqf`), square yards (`sqy`), and square miles (`sqm`). The default is `km2`.
+
+Once we have our bounding boxes, we can use the `density` function to get the data for each bounding box. This function will take care of the API calls, and will return a list with the results for each bounding box. We can also pass this function to `make_request` and it will be executed in the server side and return the results. We can also use the `density` function to combine both the bounding boxes and the periodic report. This way, we can get the data for each bounding box in each period to, for example, study the time evolution of an observation on a geographic area. We can use the following code to test this:
+
+```python
+parameters = api_parser.get_parameters('observations')
+parameters.update({
+    "geo": True,
+    "verifiable": True,
+    "identified": True,
+    "endemic": True,
+})
+
+# lets see the monthly evolution along one year
+
+parameters['d1'] = "2023-01-01"
+parameters['d2'] = "2023-12-31"
+
+monthly_report = periodic_report(parameters, months=1, no_overlap=True)
+
+
+# Prepare variables and kwargs for the density function
+variables = (bounding_boxes, parameters)
+kwargs = {'time_parameters': monthly_report}  # Pass the entire monthly_report
+
+# We can run locally with
+result = density(bounding_boxes, parameters, time_parameters=monthly_report)
+# or with 
+result = density(bounding_boxes, parameters, **kwargs)
+
+
+# Remote execution
+result = api_parser.make_request(user_function=density, variables=variables, **kwargs)
+```
+
+
+# JSON manipulation
+
+## QueryInspector
+
+The `QueryInspector` class has methods to manipulate JSON data, offering a set of primitive functions that can be used to filter, transform, or aggregate data. The `QueryInspector` class is a wrapper around a JSON object that allows us to perform operations on it in a functional way. We can chain multiple operations together to build complex queries. The `QueryInspector` class has the following methods:
+
+```python
+from your_module import QueryInspector, load_json
+
+data = load_json('result.json')
+query = QueryInspector(data)
+
+result = (query
+    .select('result')
+    .map(lambda x: x.get('results', []))
+    .flatten()
+    .filter(lambda x: 'identifications' in x and x['identifications'])
+    .map(lambda x: x['identifications'][0].get('taxon', {}).get('ancestors', []))
+    .flatten()
+    .sort('observations_count', reverse=True)
+    .map(lambda x: x.get('name'))
+    .get())
+```
+
+Key methods:
+
+- `select(path)`: Selects a specific path in the JSON structure.
+- `filter(condition)`: Filters the data based on a condition.
+- `map(func)`: Applies a function to each item in the data.
+- `flatten()`: Flattens nested lists into a single list.
+- `sort(key, reverse=False)`: Sorts the data based on a key.
+- `get()`: Returns the final result.
+
+Here are some examples of how to use `QueryInspector`:
+
+```python
+from your_module import QueryInspector, load_json
+
+data = load_json('result.json')
+query = QueryInspector(data)
+
+# Example 1: Get all species names
+species_names = (query
+    .select('result')
+    .map(lambda x: x.get('species', []))
+    .flatten()
+    .map(lambda x: x.get('name'))
+    .get())
+
+print("Species names:", species_names[:5])  # Print first 5 names
+
+# Example 2: Get observation counts for families, sorted in descending order
+family_observations = (query
+    .select('result')
+    .map(lambda x: x.get('families', []))
+    .flatten()
+    .filter(lambda x: x.get('observations_count', 0) > 100)
+    .sort('observations_count', reverse=True)
+    .map(lambda x: (x.get('name'), x.get('observations_count')))
+    .get())
+
+print("Family observations:", family_observations[:5])  # Print top 5
+
+# Example 3: Get unique iconic taxon names
+iconic_taxa = (query
+    .select('result')
+    .map(lambda x: x.get('iconic_taxa', []))
+    .flatten()
+    .map(lambda x: x.get('name'))
+    .get())
+
+print("Unique iconic taxa:", list(set(iconic_taxa)))
+
+# Example 4: Get average observations per species
+avg_observations = (query
+    .select('result')
+    .map(lambda x: x.get('species', []))
+    .flatten()
+    .map(lambda x: x.get('observations_count', 0))
+    .get())
+
+if avg_observations:
+    print("Average observations per species:", sum(avg_observations) / len(avg_observations))
+```
+
+The `QueryInspector` class is a powerful tool for working with JSON data, but requires some knowledge of the JSON structure to be effective. An easier approach comes by the hand of the `path_finder` function.
+
+## path_finder
+
+The `path_finder` function is a powerful tool for searching and extracting specific elements from complex JSON structures. It allows you to use logical expressions to define search criteria, making it easy to find elements that match multiple conditions.
+
+Key features:
+- Supports complex logical expressions using AND (&&) and OR (||) operators
+- Allows parentheses for grouping conditions
+- Provides various comparison operators: ==, !=, <, <=, >, >=
+- Supports string operations: contains, startswith, endswith
+- Includes membership testing with 'in' operator
+- Checks for existence of fields with 'exists' operator
+- Allows negation with 'not' prefix
+
+Basic syntax:
+```python
+path_finder(data, logic_str, start_point="", return_content=False, compare_results=False)
+```
+
+Parameters:
+
+- `data`: The JSON data to search
+- `logic_str`: A string representing the logical expression for searching
+- `start_point`: The path from which to start the search (optional)
+- `return_content`: If True, returns both paths and content of matching elements
+- `compare_results`: If True, returns comparison information for multiple results
+
+Some examples of their use:
+
+```python
+# Simple condition - Find all families
+results = path_finder(data, "rank == family")
+
+# Multiple conditions with AND logic - Find extinct mollusks
+results = path_finder(data, "extinct == true && iconic_taxon_name == Mollusca", return_content=True)
+print("\nExtinct mollusks:")
+for path, content in results:
+    print(f"Path: {path}")
+    print(f"Name: {content.get('name')}")
+    print(f"Rank: {content.get('rank')}")
+
+# Complex logical expression - Find either families with high observation count or classes with low observation count
+complex_logic = "(rank == family && observations_count > 10000) || (rank == class && observations_count < 1000)"
+results = path_finder(data, complex_logic, return_content=True)
+print("\nFamilies with high observations or classes with low observations:")
+for path, content in results:
+    print(f"Path: {path}")
+    print(f"Name: {content.get('name')}")
+    print(f"Rank: {content.get('rank')}")
+    print(f"Observations: {content.get('observations_count')}")
+
+# Using 'exists' operator - Find all taxa with a Wikipedia URL
+results = path_finder(data, "wikipedia_url exists && wikipedia_url != null")
+print("\nTaxa with Wikipedia URLs:")
+for path in results:
+    print(path)
+
+# Using 'contains' operator - Find taxa with '116' in their ancestry
+results = path_finder(data, "ancestry contains 116", start_point="result[0]")
+print("\nTaxa under ancestry 116 in the first result:")
+for path in results:
+    print(path)
+
+# Using 'startswith' operator - Find taxa whose name starts with 'A'
+results = path_finder(data, "name startswith A")
+print("\nTaxa whose names start with 'A':")
+for path in results:
+    print(path)
+
+# Using 'in' operator - Find taxa with specific licenses
+logic_str = "license_code in ['cc-by-nc', 'cc-by', 'cc0']"
+results = path_finder(data, logic_str)
+for path in results[:5]:
+    print(path)
+```
+
+Sometimes this will return a lot of results, so we can use the `compare_results` parameter to get a summary of the results. This will allow us to use the function  `comparison_results` to get a detailed breakdown of shared and unique values across multiple results, helping you understand the similarities and differences in your data.
+
+Key features:
+- Accepts various input formats (packed results, unpacked results, paths and contents, or just comparison data)
+- Displays unique combinations of values across results
+- Shows shared values across all results
+- Highlights unique values for individual paths
+- Provides a clear, formatted output for easy analysis
+
+Basic syntax:
+```python
+comparison_results(results, logic_str="", start_point="")
+```
+
+Parameters:
+
+- `results`: The results to compare (can be in various formats)
+- `logic_str`: The logic string used in the path_finder call (optional)
+- `start_point`: The start point used in the path_finder call (optional)
+
+Here are some examples demonstrating how to use comparison_results:
+
+```python
+# 1. With packed results from path_finder
+logic_str = "extinct == false && rank == family && observations_count exists"
+results = path_finder(data, logic_str, start_point="result[1]", return_content=True, compare_results=True)
+print('\n\n\nWith packed results from path_finder:')
+comparison_results(results, logic_str, "result[1]")
+
+# 2. With unpacked results
+print('\nWith unpacked results:')
+paths_and_contents, comparison = path_finder(data, logic_str, start_point="result[1]", return_content=True, compare_results=True)
+comparison_results((paths_and_contents, comparison), logic_str, "result[1]")
+
+# 3. With just paths_and_contents (comparison will be generated)
+print('\nWith just paths_and_contents:')
+paths_and_contents = path_finder(data, logic_str, start_point="result[1]", return_content=True)
+comparison_results(paths_and_contents, logic_str, "result[1]")
+
+# 4. With just comparison results
+comparison_results(comparison)
+
+# Note that it can handle different input formats, whether you pass the packed results from path_finder, 
+# unpacked results, just the paths_and_contents, or just the comparison. If only paths_and_contents is provided, 
+# it automatically generates the comparison using advanced_compare.
+
+# With those results, we can apply an additional filter on the initial results instead of the entire file
+refined_logic_1 = "ancestor_ids contains 211"
+refined_results_1 = filter_results(paths_and_contents, refined_logic_1)
+
+print(f"Results after first refinement: {len(refined_results_1)}")
+
+# We can refine further if needed
+refined_logic_2 = "observations_count > 500"
+final_results = filter_results(refined_results_1, refined_logic_2)
+
+print(f"Final results: {len(final_results)}")
+
+# Print the final results
+for path, content in final_results:
+    print(f"Path: {path}")
+    print(f"Name: {content.get('name')}")
+    print(f"Ancestry: {content.get('ancestry')}")
+    print(f"Observations: {content.get('observations_count')}")
+    print()
+```
+
+
+# Data Visualization
+
+This tool allows you to create animated heatmaps that visualize biodiversity data over time and space. This feature combines geographical analysis with time-based reporting to provide dynamic insights into species distribution and abundance.
+
+## Key Components
+
+1. `BiodiversityConfig`: A configuration class for specifying data processing and visualization parameters.
+2. `process_observations`: Function to process observation data for each time period and bounding box.
+3. `create_time_series_maps`: Function to create a series of folium maps for each time period.
+4. `create_gif_from_maps`: Function to generate an animated GIF from the series of maps.
+
+## Custom Data Extraction
+
+The system now allows for custom data extraction, giving you the flexibility to analyze any aspect of the JSON data structure. Here's how you can use this feature:
+
+### Customizing BiodiversityConfig
+
+You can now pass custom functions to `BiodiversityConfig` to decide how to filter, extract heatmap data, and extract popup information from the JSON data. Here's an example of how to customize the configuration:
+
+```python
+def default_filter(obs: Dict[str, Any]) -> bool:
+    return obs.get('taxon', {}).get('iconic_taxon_name') == 'Mollusca'
+
+def default_heatmap_extraction(obs: Dict[str, Any]) -> int:
+    return obs.get('observations_count', 1)
+
+def default_popup_extraction(obs: Dict[str, Any]) -> str:
+    return obs.get('taxon', {}).get('name')
+
+config = BiodiversityConfig(
+    filter_function=default_filter,
+    heatmap_extraction=default_heatmap_extraction,
+    popup_extraction=default_popup_extraction,
+    heatmap_label='Total Mollusca Observations',
+    popup_label='Unique Mollusca Species'
+)
+```
+
+### Usage
+
+To see how to use these components to create an animated biodiversity heatmap head to [examples/time_evolution.py](time_evolution.py).

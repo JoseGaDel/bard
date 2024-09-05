@@ -1,5 +1,20 @@
 from bard import *
 
+
+# ____ Consult the API documentation ____
+
+api_parser = APIParser()
+
+# Get a list of all the API calls
+api_calls = api_parser.api_calls()
+
+# Consult the documentation of a specific API call. This will print a table on the console
+api_parser.usecase('messages')
+
+# You can also get the table itself
+table = api_parser.usecase('messages', return_table=True)
+
+
 ## ____ Example of using the APIParser, corrections, etc ____
 
 coordinates = launch_map(save_polygon=True)
@@ -81,10 +96,6 @@ print(f"Unpaged results retrieved: {len(res_unpaged['results'])}")
 api_parser = APIParser(verbosity=1)
 param_dict = api_parser.get_parameters("identifications similar species")
 
-# call usecase multiple times to test verbosity
-api_parser.usecase("identifications_similar_species", return_table=True)
-api_parser.usecase("identifications_similar_species", return_table=True)
-api_parser.usecase("identifications_similar_species", return_table=True)
 
 # Test with date
 param_dict['d1'] = "2023-01-01"
@@ -169,8 +180,12 @@ input("Press Enter to continue...")
 parameters  = api_parser.get_parameters('observations')
 
 # of abundance per area
+# This will launch a map where we can select the area of interest and save the coordinates of the bounding boxes
 coordinates = launch_map(save_polygon=True)
-bounding_boxes = coordinates.get_grid(show_result=False)
+
+# The method will return a list where each element is a list of coordinates of the bounding box,
+# and the resulting map. Remember to unpack them.
+bounding_boxes, _ = coordinates.get_grid(square_area=1, show_result=True, tolerance=0.03)
 
 parameters.update({
     "year": 2023,
@@ -179,9 +194,10 @@ parameters.update({
 })
 
 
-print("\n Simple request. Fetching 100 results")
-
-api_parser.make_request(parameters, max_results=100)
+# We can use the density function to take care of the API calls. This function calls make_request internally
+# for each bounding box using concurrent.futures to speed up the process
+print("Local request, using the density function")
+result = density(bounding_boxes, parameters)
 
 
 print("Complex request, forwarding function to be executed on the server")

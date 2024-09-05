@@ -13,6 +13,7 @@ The script performs the following steps:
 """
 from bard import *
 import json
+from typing import Dict, Any
 
 
 
@@ -57,13 +58,21 @@ with open('results_monthly.json', 'w') as f:
     json.dump(results, f, indent=2)
 
 
+def default_filter(obs: Dict[str, Any]) -> bool:
+    return obs.get('taxon', {}).get('iconic_taxon_name') == 'Mollusca'
+
+def default_heatmap_extraction(obs: Dict[str, Any]) -> int:
+    return obs.get('observations_count', 1)
+
+def default_popup_extraction(obs: Dict[str, Any]) -> str:
+    return obs.get('taxon', {}).get('name')
+
 config = BiodiversityConfig(
-    filter_field='taxon.iconic_taxon_name',
-    filter_value='Mollusca',
-    heatmap_field='observations_count',
-    popup_field='taxon.name',
-    heatmap_label='Total Plant Observations',
-    popup_label='Unique Plant Species'
+    filter_function=default_filter,
+    heatmap_extraction=default_heatmap_extraction,
+    popup_extraction=default_popup_extraction,
+    heatmap_label='Total Mollusca Observations',
+    popup_label='Unique Mollusca Species'
 )
 
 # Assuming 'results' is your data from the API call and 'bounding_boxes' is available
