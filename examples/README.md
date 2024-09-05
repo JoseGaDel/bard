@@ -517,6 +517,9 @@ result = api_parser.make_request(user_function=density, variables=variables)
 
 In the `get_grid` method, we can set the `square_area` parameter to the desired area of the bounding box in square kilometers. The `tolerance` parameter is used to set what is the minimum fraction a bounding box needs to intersect the polygon in order to be included. The default is 0, which is the most permissive, and will include all bounding boxes that intersect the polygon, no matter how minimal this intersection is. If we set a tolerance of 1, the program will not include any bounding box that is not fully contained within the polygon, so there will not be any area outside the polygon but will mean there are bigger uncovered gaps inside the polygon. You can play with this parameter and the `square_area` to get a finer grained division of the area. You can also choose a different area unit with the `area_units` parameter. COmpatible units are square kilometers (`km2`), hectares (`ha`, `hm2`), square decametre (`dam2`),  square meters (`m2`), acres (`acres`), square feet (`sqf`), square yards (`sqy`), and square miles (`sqm`). The default is `km2`.
 
+![tolerances](https://github.com/user-attachments/assets/d73c52ee-d40a-4819-b3a9-a6d95020657b)
+
+
 Once we have our bounding boxes, we can use the `density` function to get the data for each bounding box. This function will take care of the API calls, and will return a list with the results for each bounding box. We can also pass this function to `make_request` and it will be executed in the server side and return the results. We can also use the `density` function to combine both the bounding boxes and the periodic report. This way, we can get the data for each bounding box in each period to, for example, study the time evolution of an observation on a geographic area. We can use the following code to test this:
 
 ```python
@@ -549,6 +552,9 @@ result = density(bounding_boxes, parameters, **kwargs)
 # Remote execution
 result = api_parser.make_request(user_function=density, variables=variables, **kwargs)
 ```
+
+
+https://github.com/user-attachments/assets/f1518ed8-83d0-4342-8690-96138b00c315
 
 
 # JSON manipulation
@@ -822,3 +828,5 @@ config = BiodiversityConfig(
 ### Usage
 
 To see how to use these components to create an animated biodiversity heatmap head to [examples/time_evolution.py](time_evolution.py).
+![biodiversity_evolution_mollusca](https://github.com/user-attachments/assets/bcbe7155-b3e6-4b30-be64-e6a1ad0a1232)
+
