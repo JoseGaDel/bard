@@ -564,7 +564,7 @@ https://github.com/user-attachments/assets/f1518ed8-83d0-4342-8690-96138b00c315
 The `QueryInspector` class has methods to manipulate JSON data, offering a set of primitive functions that can be used to filter, transform, or aggregate data. The `QueryInspector` class is a wrapper around a JSON object that allows us to perform operations on it in a functional way. We can chain multiple operations together to build complex queries. The `QueryInspector` class has the following methods:
 
 ```python
-from your_module import QueryInspector, load_json
+from bard import QueryInspector, load_json
 
 data = load_json('result.json')
 query = QueryInspector(data)
