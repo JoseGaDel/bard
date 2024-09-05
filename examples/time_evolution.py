@@ -54,9 +54,6 @@ print(f"Number of bounding boxes in results: {len(results[0])}")
 print(f"Number of bounding boxes extracted from map: {len(bounding_boxes)}")
 print(f"Type of first time period data: {type(results[0])}")
 
-with open('results_monthly.json', 'w') as f:
-    json.dump(results, f, indent=2)
-
 
 def default_filter(obs: Dict[str, Any]) -> bool:
     return obs.get('taxon', {}).get('iconic_taxon_name') == 'Mollusca'
@@ -75,10 +72,8 @@ config = BiodiversityConfig(
     popup_label='Unique Mollusca Species'
 )
 
-# Assuming 'results' is your data from the API call and 'bounding_boxes' is available
 processed_data = process_observations(results, bounding_boxes, config)
 
-# Create a list of time period labels (adjust as needed)
 time_periods = [f"Period {i+1}" for i in range(len(processed_data))]
 
 time_series_maps = create_time_series_maps(processed_data, bounding_boxes, time_periods, config)
