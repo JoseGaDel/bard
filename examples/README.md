@@ -593,7 +593,7 @@ Key methods:
 Here are some examples of how to use `QueryInspector`:
 
 ```python
-from your_module import QueryInspector, load_json
+from bard import QueryInspector, load_json
 
 data = load_json('result.json')
 query = QueryInspector(data)
