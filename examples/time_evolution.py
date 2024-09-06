@@ -76,6 +76,9 @@ processed_data = process_observations(results, bounding_boxes, config)
 
 time_periods = [f"Period {i+1}" for i in range(len(processed_data))]
 
+# or we could name them by the month
+# time_periods = [f"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
 time_series_maps = create_time_series_maps(processed_data, bounding_boxes, time_periods, config)
 
 # Create the animated GIF
