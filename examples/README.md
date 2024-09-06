@@ -38,7 +38,7 @@ result = api_parser.make_request(parameters)
 print(result)
 ```
 
-The core components of this module are the `APIParser` class and the parameters dictionary. The `APIParser` class is the main class of the module, and it is responsible for handling the API calls, authentication, and response parsing. The `APIParser.get_parameters` method give us a dictionary with the parameters needed for the API call, which we will fill with the desired configuration and the class will take care of constructing a valid API call from it. The rest of the module will use this parameters dictionary to understand what we want to get from the API.
+The core components of this module are the `APIParser` class and the parameters dictionary. The `APIParser` class is the main object of the module, and it is responsible for handling the API calls, authentication, and response parsing. The `APIParser.get_parameters` method give us a dictionary with the parameters needed for the API call, which we will fill with the desired configuration and the class will take care of constructing a valid API call from it. The rest of the module will use this parameters dictionary to understand what we want to get from the API.
 
 ## API information
 
@@ -68,7 +68,7 @@ Description: Show the user's inbox or sent box
 | user_id | User ID or username of correspondent to filter by | query | string |
 | threads | Groups results by `thread_id`, only shows the latest message per thread, and includes a `thread_messages_count` attribute showing the total number of messages in that thread. Note that this will not work with the `q` param, and it probably should only be used with `box=any` because the `thread_messages_count` will be inaccurate when you restrict it to `inbox` or `sent`. | query | boolean |
 
-This way, we have can consult the API documentation from the program, without the need to access the API documentation. If, however, we do want to access the API documentation, we can do so with the `open_api_docs` method. This method will open the API documentation in the browser, and will try to find the exact call we are looking for. We can use the method with the exact name of the call, or with a more natural language, and the program will try to resolve it. For example:
+This way, can consult the API documentation from inside the program, without the need to access the API documentation. If, however, we do want to access the API documentation, we can do so with the `open_api_docs` method. This method will open the API documentation in the browser, and will try to find the exact call we are looking for. We can use the method with the exact name of the call, or with a more natural language, and the program will try to resolve it. For example:
 
 ```python
 api_parser.open_api_docs()
@@ -142,7 +142,7 @@ Did you mean one of the following? (If not, type 'n')
 
 ### Strict Matching
 
-Some API calls will inevitably have similar names, and they will always have multiple matches. There are base calls like `/observations`, that have multiple derived calls, like `/observations/deletedObservations`, `/observations/histogram`, `/observations/identifiers`, etc. Any of the derived calls can be unequivocally identified, but the base call cannot. In order to prevent the program from prompting every time a base call is used, the parser has a `strict_matching` attribute that can be set to `True` or `False`. By default, so if there are multiple matches but one of them fully covers the input, the program will take it directly. If `strict_matching` is set to `False`, the program will ask the user to choose between the multiple matches.
+Some API calls will inevitably have similar names, and thus will always have multiple matches. There are base calls like `/observations`, that have multiple derived calls, like `/observations/deletedObservations`, `/observations/histogram`, `/observations/identifiers`, etc. Any of the derived calls can be unequivocally identified, but the base call cannot. In order to prevent the program from prompting every time a base call is used, the parser has a `strict_matching` attribute that can be set to `True` (the default) or `False`. Unless disabled, if there are multiple matches but one of them fully covers the input, the program will take it directly. If `strict_matching` is set to `False`, the program will ask the user to choose between the multiple possibilities.
 
 ```python
 # The default is strict matching. This will take the base call directly
@@ -245,7 +245,7 @@ This API call can return hundreds of thousands (or millions) of results, but the
 
 ## Authentication
 
-Some API calls require user authentication. The `APIParser` class has a method to set the authentication token. If we have a token at hand, we can manually set it using the `set_token` method. The token can be set as a string or as a dictionary. If the token is a dictionary, the program will try to resolve the token key. If the token is a string, the program will use it directly. If we do not have the token, BARD has an automatic mechanism to perform authentication automatically. The program will try to find an authentication endpoint in the API specification and will try to authenticate using the user credentials. If this endpoint is not present, it will try to find it in the description and if this fails, we will have the chance of passing this link to the program both in the program using `set_auth_endpoint`, or in the CLI if all the previous methods fail. 
+Some API calls require user authentication. The `APIParser` class has a method to set the authentication token. If we have a token at hand, we can manually set it using the `set_token` method. The token can be set as a string or as a dictionary. If the token is a dictionary, the program will try to resolve the token key. If the token is a string, the program will use it directly. If we do not have the token, BARD has an automatic mechanism to perform authentication automatically. The program will try to find an authentication endpoint in the API specification and will try to authenticate using the user credentials. If this endpoint is not present, it will try to find it in the description and if this fails, we will have the chance of passing this link to the program both in the program using `set_auth_endpoint`, or in the CLI as a last resource. 
 
 ```python
 username = "my_username"
@@ -278,7 +278,7 @@ except ValueError as e:
     print(f"Error making API call: {str(e)}")
 ```
 
-When we successfully authenticate, the program will set the token in the `APIParser` object and will use it for all the subsequent calls. It will also cache it so that we do not need to authenticate every time we run the program. If the token expires, the program will try to authenticate again to update the token and cache it again. If the program fails to authenticate, it will raise an error. This will output:
+When we successfully authenticate, the program will set the token in the `APIParser` object and will use it for all the subsequent calls. It will also cache it so that we do not need to authenticate every time we run the program. If the token expires, the program will try to authenticate again to update the token and cache it. If the program fails to authenticate, it will raise an error. This will output:
 
 ```
 | ℹ️ INFO | API URL: https://api.minka-sdg.org/v1
@@ -336,7 +336,7 @@ result = api_parser.make_request(api_parser.get_parameters("messages/unread"))
 print(f'Result expired token (messages/unread):\n{result}')
 ```
 
-The first call will load the cached token, it will check it's expiration date and if it's still valid, it will use it. To show what happens when a token is expired, we manually change the expiration date of the token to two days before the current date. The program will find that the token is expired and will repeat the authentication process. This depends on the program knowing what is the lifetime of the token, because it checks the expiration date in the cached file which has an expiration date field that is set by the program. The framework uses a default lifetime of 24 hours, which is the value used by MINKA. For different APIs you may need to adjust this parameter in `APIParser(token_lifetime = time_in_seconds)` or `APIParser.token_lifetime = time_in_seconds`. The output will look something like this:
+The first call will load the cached token, check it's expiration date and if it's still valid, it will use it. To show what happens when a token is expired, we manually change the expiration date of the token to two days before the current date. The program will find that the token is expired and will repeat the authentication process. This depends on the program knowing what is the lifetime of the token, because it checks the expiration date in the cached file which has an expiration date field that is set by the program. The framework uses a default lifetime of 24 hours, which is the value used by MINKA. For different APIs you may need to adjust this parameter in `APIParser(token_lifetime = time_in_seconds)` or `APIParser.token_lifetime = time_in_seconds`. The output will look something like this:
 
 ```
 | ℹ INFO | 
@@ -400,7 +400,7 @@ parser2 = APIParser(api_url="https://api.minka-sdg.org/v1" , verbosity=3, instan
 parser2 = APIParser.get_instance("parser2", api_url="https://api.minka-sdg.org/v1", verbosity=3)
 ```
 
-This will mean that a change to one parser will propagate to every other instance of that parser with the same identification (but not between parser with different identifications). If we want to apply temporal changes to the configuration of one parser, we can do so by using context manager:
+This will mean that a change to one parser will propagate to every other instance of that parser with the same identification (but not between parsers with different identifications). If we want to apply temporal changes to the configuration of one parser, we can do so by using context manager:
 
 ```python
 api_parser = APIParser(verbosity=1, strict_matching=True)
@@ -433,7 +433,7 @@ def some_function():
     other_parser = APIParser()
 ```
 
-Here, maybe we would expect that `other_parser` would have different settings from `api_parser`, but it will actually have the same settings as `api_parser` because it is a reference to the same object. Therefore, even if we expect it to have the default `strict_matching=True` even being in the scope of the function, the change made with `api_parser.strict_matching = False` is universal and `other_parser` will reflect this change. The context manager allows us to change the settings temporarily and then revert them back to the original settings, as in the previous case.
+If we didn't know about the Singleton pattern, we would expect `other_parser` to have different settings from `api_parser`, but it will actually have the same settings as `api_parser` because it is a reference to the same object. Even if it's inside a function with different scope, the change made with `api_parser.strict_matching = False` is universal and `other_parser` will reflect this inside the function. The context manager allows us to change the settings temporarily and then revert them back to the original settings, as in the previous case.
 
 
 
@@ -578,7 +578,7 @@ variables = (bounding_boxes, parameters)
 result = api_parser.make_request(user_function=density, variables=variables)
 ```
 
-In the `get_grid` method, we can set the `square_area` parameter to the desired area of the bounding box in square kilometers. The `tolerance` parameter is used to set what is the minimum fraction a bounding box needs to intersect the polygon in order to be included. The default is 0, which is the most permissive, and will include all bounding boxes that intersect the polygon, no matter how minimal this intersection is. If we set a tolerance of 1, the program will not include any bounding box that is not fully contained within the polygon, so there will not be any area outside the polygon but will mean there are bigger uncovered gaps inside the polygon. You can play with this parameter and the `square_area` to get a finer grained division of the area. You can also choose a different area unit with the `area_units` parameter. COmpatible units are square kilometers (`km2`), hectares (`ha`, `hm2`), square decametre (`dam2`),  square meters (`m2`), acres (`acres`), square feet (`sqf`), square yards (`sqy`), and square miles (`sqm`). The default is `km2`.
+In the `get_grid` method, we can set the `square_area` parameter to the desired area of the bounding box in square kilometers. The `tolerance` parameter is used to set what is the minimum fraction a bounding box needs to intersect the polygon in order to be included. The default is 0, which is the most permissive, and will include all bounding boxes that intersect the polygon, no matter how minimal this intersection is. If we set a tolerance of 1, the program will not include any bounding box that is not fully contained within the polygon, so there will not be any area outside the polygon but will mean there are bigger uncovered gaps inside the polygon. You can play with this parameter and the `square_area` to get a finer grained division of the area. You can also choose a different area unit with the `area_units` parameter. Compatible units are square kilometers (`km2`), hectares (`ha`, `hm2`), square decametre (`dam2`),  square meters (`m2`), acres (`acres`), square feet (`sqf`), square yards (`sqy`), and square miles (`sqm`). The default is `km2`.
 
 ![tolerances](https://github.com/user-attachments/assets/d73c52ee-d40a-4819-b3a9-a6d95020657b)
 
@@ -624,7 +624,7 @@ https://github.com/user-attachments/assets/f1518ed8-83d0-4342-8690-96138b00c315
 
 ## QueryInspector
 
-The `QueryInspector` class has methods to manipulate JSON data, offering a set of primitive functions that can be used to filter, transform, or aggregate data. The `QueryInspector` class is a wrapper around a JSON object that allows us to perform operations on it in a functional way. We can chain multiple operations together to build complex queries. The `QueryInspector` class has the following methods:
+The `QueryInspector` class has methods to manipulate JSON data, offering a set of primitive functions that can be used to filter, transform, or aggregate data. This class is a wrapper around a JSON object that allows us to perform operations on it in a functional way. We can chain multiple operations together to build complex queries. The `QueryInspector` class has the following methods:
 
 ```python
 from bard import QueryInspector, load_json
@@ -644,8 +644,6 @@ result = (query
     .get())
 ```
 
-Key methods:
-
 - `select(path)`: Selects a specific path in the JSON structure.
 - `filter(condition)`: Filters the data based on a condition.
 - `map(func)`: Applies a function to each item in the data.
@@ -653,7 +651,7 @@ Key methods:
 - `sort(key, reverse=False)`: Sorts the data based on a key.
 - `get()`: Returns the final result.
 
-Here are some examples of how to use `QueryInspector`:
+Here is how you can use `QueryInspector`:
 
 ```python
 from bard import QueryInspector, load_json
@@ -709,7 +707,7 @@ The `QueryInspector` class is a powerful tool for working with JSON data, but re
 
 ## path_finder
 
-The `path_finder` function is a powerful tool for searching and extracting specific elements from complex JSON structures. It allows you to use logical expressions to define search criteria, making it easy to find elements that match multiple conditions.
+The `path_finder` function offers an easy way of searching and extracting specific elements from complex JSON structures. It allows you to use logical expressions to define search criteria, making it easy to find elements that match multiple conditions.
 
 Key features:
 - Supports complex logical expressions using AND (&&) and OR (||) operators
@@ -782,7 +780,7 @@ for path in results[:5]:
     print(path)
 ```
 
-Sometimes this will return a lot of results, so we can use the `compare_results` parameter to get a summary of the results. This will allow us to use the function  `comparison_results` to get a detailed breakdown of shared and unique values across multiple results, helping you understand the similarities and differences in your data.
+Sometimes this will return a lot of contents, so we can use the `compare_results` parameter to get a summary of the results. This will allow us to use the function  `comparison_results` to get a detailed breakdown of shared and unique values across multiple results, helping you understand the similarities and differences in your data.
 
 Key features:
 - Accepts various input formats (packed results, unpacked results, paths and contents, or just comparison data)
@@ -802,7 +800,7 @@ Parameters:
 - `logic_str`: The logic string used in the path_finder call (optional)
 - `start_point`: The start point used in the path_finder call (optional)
 
-Here are some examples demonstrating how to use comparison_results:
+Here are some examples demonstrating how to use `comparison_results`:
 
 ```python
 # 1. With packed results from path_finder
@@ -891,5 +889,7 @@ config = BiodiversityConfig(
 ### Usage
 
 To see how to use these components to create an animated biodiversity heatmap head to [examples/time_evolution.py](time_evolution.py).
+
+
 ![biodiversity_evolution_mollusca](https://github.com/user-attachments/assets/bcbe7155-b3e6-4b30-be64-e6a1ad0a1232)
 

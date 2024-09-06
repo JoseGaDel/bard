@@ -46,7 +46,7 @@ services:
     volumes:
       - ./server:/app/server
 ```
-Replace `<new-host-port>` with the port you want to expose on your host machine, and `<new-container-port>` with the port your Flask app will listen on inside the container. The [Dockerfile](Dockerfile) doesn't need to be changed unless you want to modify the `EXPOSE` instruction for documentation purposes. It does not have any operational effect on the behavior of the container, but is best to make it match the actual configuration so it doesn't cause confusion. Update the port in your Flask application in [server/server.py](server/server.py):
+Replace `<new-host-port>` with the port you want to expose on your host machine, and `<new-container-port>` with the port your Flask app will listen on inside the container. The [Dockerfile](Dockerfile) doesn't need to be changed unless you want to modify the `EXPOSE` instruction for documentation purposes. It does not have any operational effect on the behavior of the container, but it is best to make it match the actual configuration so it doesn't cause confusion. Update the port in your Flask application in [server/server.py](server/server.py):
 
 ```python
 if __name__ == '__main__':
