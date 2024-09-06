@@ -44,8 +44,8 @@ This project has been developed with the MINKA API in mind, but it can be easily
 Set custom URLs during initialization to your desired API. You can even have two coexisting instances to switch between APIs easily.
 
 ```python
-parser1 = APIParser(api_url="https://api.minka-sdg.org/v1/docs/")
-parser2 = APIParser(api_url="https://api.inaturalist.org/v1/docs/")
+parser1 = APIParser(api_url="https://api.inaturalist.org/v1", instance="parser1")
+parser2 = APIParser(api_url="https://api.minka-sdg.org/v1" , instance="parser2")
 ```
 
 ### 2. Verbosity Levels
