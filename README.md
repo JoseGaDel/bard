@@ -34,7 +34,27 @@ This module has been designed considering the server-side would implement an exe
 docker-compose up --build
 ```
 
-During development we used a SSH to connect to the server and we needed to use a specific port to connect to the server. You will need to adjust this in the configuration, as well as the `APIParser.server_ip` variable in the module, which defaults to `127.0.0.1` (localhost).
+During development we used a SSH tunnel from local port 8000 to port 8001 on the remote server because we had certain port requirements. You may need to adjust this in the configuration, as well as the `APIParser.server_ip` variable in the module, which defaults to `127.0.0.1` (localhost) because it was being tested using the SSH tunnel. If you need to change the port on which the server runs, you'll need to update several components of the setup. First, update the port mapping in the [docker-compose.yml](docker-compose.yml) file:
+
+```yaml
+version: '3'
+services:
+  minka-server:
+    build: .
+    ports:
+      - "<new-host-port>:<new-container-port>"
+    volumes:
+      - ./server:/app/server
+```
+Replace `<new-host-port>` with the port you want to expose on your host machine, and `<new-container-port>` with the port your Flask app will listen on inside the container. The [Dockerfile](Dockerfile) doesn't need to be changed unless you want to modify the `EXPOSE` instruction for documentation purposes. It does not have any operational effect on the behavior of the container, but is best to make it match the actual configuration so it doesn't cause confusion. Update the port in your Flask application in [server/server.py](server/server.py):
+
+```python
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=<new-container-port>)
+```
+
+and initialize with `APIParser(server_ip = "ip_or_domain", server_port = <port-listening-for-connections>)`. This way you can adjust ports and directions to your setup.
+
 
 ## Adjust the configuration to your specific needs
 
