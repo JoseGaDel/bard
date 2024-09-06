@@ -38,7 +38,7 @@ result = api_parser.make_request(parameters)
 print(result)
 ```
 
-The core components of this module are the `APIParser` class and the parameters dictionary. The `APIParser` class is the main class of the module, and it is responsible for handling the API calls, authentication, and response parsing. The `APIParser.get_parameters` method give us a dictionary with the parameters needed for the API call. This way, we do not need to worry about constructing API calls and just to set what parameters we want to use. The rest of the module will use this parameters dictionary to understand what we want to get from the API.
+The core components of this module are the `APIParser` class and the parameters dictionary. The `APIParser` class is the main class of the module, and it is responsible for handling the API calls, authentication, and response parsing. The `APIParser.get_parameters` method give us a dictionary with the parameters needed for the API call, which we will fill with the desired configuration and the class will take care of constructing a valid API call from it. The rest of the module will use this parameters dictionary to understand what we want to get from the API.
 
 ## API information
 
@@ -68,7 +68,33 @@ Description: Show the user's inbox or sent box
 | user_id | User ID or username of correspondent to filter by | query | string |
 | threads | Groups results by `thread_id`, only shows the latest message per thread, and includes a `thread_messages_count` attribute showing the total number of messages in that thread. Note that this will not work with the `q` param, and it probably should only be used with `box=any` because the `thread_messages_count` will be inaccurate when you restrict it to `inbox` or `sent`. | query | boolean |
 
+This way, we have can consult the API documentation from the program, without the need to access the API documentation. If, however, we do want to access the API documentation, we can do so with the `open_api_docs` method. This method will open the API documentation in the browser, and will try to find the exact call we are looking for. We can use the method with the exact name of the call, or with a more natural language, and the program will try to resolve it. For example:
 
+```python
+api_parser.open_api_docs()
+# This will open the API documentation main page
+
+api_parser.open_api_docs("get identifications id")
+# This will directly open: /v1/docs/#!/Identifications/get_identifications_id
+
+api_parser.open_api_docs("delete identifications id")
+# This will directly open: /v1/docs/#!/Identifications/delete_identifications_id
+
+api_parser.open_api_docs("identifications/{id}")
+# As we didn't specify the method, it will ask us to choose between:
+# 1. GET /identifications/{id}
+# 2. PUT /identifications/{id}
+# 3. DELETE /identifications/{id}
+
+
+api_parser.open_api_docs("identifications/id")
+api_parser.open_api_docs("identifications id")
+# This two should give the same result as the previous one
+
+
+api_parser.open_api_docs("observations")
+# This will match with lots of endpoints
+```
 
 ## Lousy Input
 
@@ -373,6 +399,43 @@ parser2 = APIParser(api_url="https://api.minka-sdg.org/v1" , verbosity=3, instan
 # Another alternative to initialize the new parser is:
 parser2 = APIParser.get_instance("parser2", api_url="https://api.minka-sdg.org/v1", verbosity=3)
 ```
+
+This will mean that a change to one parser will propagate to every other instance of that parser with the same identification (but not between parser with different identifications). If we want to apply temporal changes to the configuration of one parser, we can do so by using context manager:
+
+```python
+api_parser = APIParser(verbosity=1, strict_matching=True)
+
+# This will use strict matching
+result1 = api_parser.get_closest_api_call("observations")
+
+# Temporarily disable strict matching
+with api_parser.temporary_settings(strict_matching=False):
+    # This will use non-strict matching
+    result2 = api_parser.get_closest_api_call("observations")
+
+# This will use strict matching again
+result3 = api_parser.get_closest_api_call("observations")
+
+# To change verbosity (or any other variable), we use the same function
+def some_function():
+    with api_parser.temporary_settings(verbosity=0):
+        api_parser.usecase("some_endpoint")
+```
+
+In contrast, consider the alternative:
+
+```python
+api_parser = APIParser(verbosity=1, strict_matching=True)
+
+api_parser.strict_matching = False
+
+def some_function():
+    other_parser = APIParser()
+```
+
+Here, maybe we would expect that `other_parser` would have different settings from `api_parser`, but it will actually have the same settings as `api_parser` because it is a reference to the same object. Therefore, even if we expect it to have the default `strict_matching=True` even being in the scope of the function, the change made with `api_parser.strict_matching = False` is universal and `other_parser` will reflect this change. The context manager allows us to change the settings temporarily and then revert them back to the original settings, as in the previous case.
+
+
 
 # Data Analysis
 

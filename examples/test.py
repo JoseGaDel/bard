@@ -15,6 +15,33 @@ api_parser.usecase('messages')
 table = api_parser.usecase('messages', return_table=True)
 
 
+## ____ Open API documentation ____
+
+api_parser.open_api_docs()
+# This will open the API documentation main page
+
+api_parser.open_api_docs("get identifications id")
+# This will directly open: /v1/docs/#!/Identifications/get_identifications_id
+
+api_parser.open_api_docs("delete identifications id")
+# This will directly open: /v1/docs/#!/Identifications/delete_identifications_id
+
+api_parser.open_api_docs("identifications/{id}")
+# As we didn't specify the method, it will ask us to choose between:
+# 1. GET /identifications/{id}
+# 2. PUT /identifications/{id}
+# 3. DELETE /identifications/{id}
+
+
+api_parser.open_api_docs("identifications/id")
+api_parser.open_api_docs("identifications id")
+# This two should give the same result as the previous one
+
+
+api_parser.open_api_docs("observations")
+# This will match with lots of endpoints
+
+
 ## ____ Example of using the APIParser, corrections, etc ____
 
 coordinates = launch_map(save_polygon=True)

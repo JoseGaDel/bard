@@ -28,10 +28,78 @@ You can head to the [examples](examples) folder to see some basic usage of the m
 
 ### The server
 
-This module has been designed considering the server-side would implement an execute endpoint where users can pass functions that will perform the API calls. The directory [server](server) contains a minimal Flask application to give a rough idea of how this could be implemented. This is by no means a production-ready application, but it allows us to test the module in a server environment. To run the server, simply clone the repository and deploy using Docker:
+This module has been designed considering the server-side would implement an execute endpoint where users can pass functions that will perform the API calls. The directory [server](server) contains a minimal Flask application to give a rough idea of how this could be implemented. This is by no means a production-ready application, but it allows us to test the module in a server environment. For the moment, the only feature that will not work if the server is not running is when we pass a function to `APIParser.make_request()`, but we can always run that function locally, or run the server on your local host for testing. To run the server, simply clone the repository and deploy using Docker:
 
 ```bash
 docker-compose up --build
 ```
 
 During development we used a SSH to connect to the server and we needed to use a specific port to connect to the server. You will need to adjust this in the configuration, as well as the `APIParser.server_ip` variable in the module, which defaults to `127.0.0.1` (localhost).
+
+## Adjust the configuration to your specific needs
+
+This project has been developed with the MINKA API in mind, but it can be easily adapted to other APIs. Here is a list of the main configuration options that can be adjusted to your specific needs:
+
+### 1. API URL and Documentation URL
+Set custom URLs during initialization to your desired API. You can even have two coexisting instances to switch between APIs easily.
+
+```python
+parser1 = APIParser(api_url="https://api.minka-sdg.org/v1/docs/")
+parser2 = APIParser(api_url="https://api.inaturalist.org/v1/docs/")
+```
+
+### 2. Verbosity Levels
+Set the verbosity level (0-4) to control logging:
+
+```python
+parser.set_verbosity(2)
+
+# Or set it during initialization
+parser = APIParser(verbosity=2)
+```
+
+### 3. Caching
+Control caching of API specifications and tokens:
+```python
+parser.cache_location = "custom_spec.json"
+parser.token_lifetime = 7200  # Set token lifetime in seconds
+```
+
+### 4. Authentication
+
+Set API token manually:
+```python
+parser.set_api_token("your_api_token", expires_in=3600)
+```
+Use browser-based authentication:
+```python
+parser.authenticate(username="user", password="pass")
+```
+
+Configure headless mode for browser authentication:
+```python
+parser.headless = True
+```
+
+### 5. Cookie Handling
+Enable or disable cookie-based authentication:
+```python
+parser.use_cookies = True
+parser.cookie_file = 'custom_cookies.pkl'
+```
+
+Cookies are intended to speed up the authentication process by storing the session cookies in a file. This is particularly useful when the API requires a browser-based login. When testing with MINKA, it looked like the server forces revalidation each time the browser is closed, so the cookies are not very useful in this case. This is why it is disable by default, but it can be enabled if your API supports it.
+
+### 6. Strict Matching
+Control how API calls are matched:
+```python
+parser = APIParser(strict_matching=False)
+```
+### 7. Server Configuration
+Set the server IP and port:
+
+```python
+parser.server_ip = "ip_or_domain"
+parser.server_port = 5000
+server.executable_endpoint = "execute"
+```

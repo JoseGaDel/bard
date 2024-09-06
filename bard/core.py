@@ -1,15 +1,15 @@
 import json
 import requests
 import urllib.parse
+import webbrowser
 from difflib import get_close_matches
 import re
 from datetime import datetime, timedelta
 import os
-from typing import Callable
 import logging
 from functools import lru_cache
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Callable, Tuple
 
 from datetime import datetime, timedelta
 from selenium import webdriver
@@ -247,13 +247,15 @@ class APIParser:
             cls._instances[instance] = super(APIParser, cls).__new__(cls)
         return cls._instances[instance]
 
-    def __init__(self, instance="default", api_url=None, doc_url=None, verbosity=1, strict_matching=True, token_lifetime=86400):
+    def __init__(self, instance="default", api_url=None, doc_url=None, verbosity=1, strict_matching=True, token_lifetime=86400, server_ip="127.0.0.1", server_port=8000, executable_endpoint='execute'):
         self.instance = instance
         self.verbosity = verbosity
         self.strict_matching = strict_matching
-        self.base_url = "https://minka-tfm.quanta-labs.com:4000/v1" if api_url is None else api_url
-        self.api_doc = self.base_url + "/docs/" if doc_url is None else doc_url
-        self.server_ip = "127.0.0.1"    # Server where the endpoint /execute is hosted
+        self.api_url = "https://minka-tfm.quanta-labs.com:4000/v1" if api_url is None else api_url
+        self.base_url, self.api_doc = self._parse_url(api_url)
+        self.server_ip = server_ip    # Server where the endpoint /execute is hosted
+        self.server_port = server_port # Port where the endpoint /execute is hosted
+        self.executable_endpoint = executable_endpoint
         self.logger = self._setup_logger(verbosity)
         self._log_init_info()
         self.cache_location = "spec.json"
@@ -267,6 +269,31 @@ class APIParser:
         self.cookie_file = 'minka_cookies.pkl'
         self.paths = self.spec.get('paths', {})
         self.initialized = True
+
+    def _parse_url(self, url : str) -> Tuple[str, str]:
+        # Remove trailing slash if present
+        url = url.rstrip('/')
+
+        # Check if the URL ends with '/docs'
+        if url.endswith('/docs'):
+            api_doc = url
+            base_url = re.sub(r'/docs/?$', '', url)
+        else:
+            base_url = url
+            api_doc = f"{url}/docs"
+
+        # Ensure base_url doesn't end with a version number
+        base_url = re.sub(r'/v\d+$', '', base_url)
+
+        # Parse the URL to extract the scheme and netloc
+        parsed_url = urllib.parse.urlparse(base_url)
+        scheme_and_netloc = f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+        # If base_url is just the scheme and netloc, append '/v1'
+        if base_url == scheme_and_netloc:
+            base_url += '/v1'
+
+        return base_url, api_doc
 
     def _setup_logger(self, verbosity: int) -> logging.Logger:
         logger = logging.getLogger(f"{self.__class__.__name__}_{self.instance}")
@@ -903,6 +930,148 @@ class APIParser:
         print(f"Description: {textwrap.fill(description, width=80)}\n")
         print(tabulate(table_data, headers=headers, tablefmt="grid", colalign=("left", "left", "left", "left")))
 
+    def open_api_docs(self, endpoint: Optional[str] = None) -> None:
+        """
+        Opens the API documentation in the default web browser.
+        If an endpoint is specified, it tries to open the documentation for that specific endpoint or group.
+
+        Args:
+            - endpoint (Optional[str]): The specific API endpoint or group to open documentation for.
+
+        Returns:
+            - None
+        """
+        if not self.api_doc:
+            self.logger.error("API documentation URL is not set.")
+            return
+
+        if endpoint:
+            matches = self._find_matching_endpoints(endpoint)
+            if len(matches) == 1:
+                doc_link = self._construct_doc_link(*matches[0])
+            elif len(matches) > 1:
+                selected_match = self._prompt_user_for_selection(matches, endpoint)
+                if selected_match:
+                    doc_link = self._construct_doc_link(*selected_match)
+                else:
+                    self.logger.warning("No selection made. Opening general API documentation.")
+                    webbrowser.open(self.api_doc)
+                    return
+            else:
+                self.logger.warning(f"Couldn't find a matching endpoint for '{endpoint}'. Opening general API documentation.")
+                webbrowser.open(self.api_doc)
+                return
+
+            specific_url = urllib.parse.urljoin(self.api_doc, doc_link)
+            webbrowser.open(specific_url)
+            self.logger.info(f"Opened API documentation for '{doc_link}' in browser: {specific_url}")
+        else:
+            webbrowser.open(self.api_doc)
+            self.logger.info(f"Opened API documentation in browser: {self.api_doc}")
+
+    def _find_matching_endpoints(self, endpoint: str) -> List[Tuple[str, str]]:
+        """
+        Find matching endpoints in the API specification. This method attempts to
+        find endpoints that match the given input. It first tries to find endpoints that
+        contain all the words in the input. If no such endpoints are found, it falls
+        back to partial matching, sorting the results by the number of matching words.
+
+        Args:
+            - endpoint (str): The endpoint to search for.
+
+        Returns:
+            - List[Tuple[str, str]]: A list of tuples, where each tuple contains 
+                (path, method) of matching endpoints.
+        """
+
+        endpoint_words = set(re.findall(r'\w+', endpoint.lower()))
+        matches = []
+
+        for path, methods in self.paths.items():
+            path_words = set(re.findall(r'\w+', path.lower()))
+            for method in methods.keys():
+                method_words = set(re.findall(r'\w+', method.lower()))
+                combined_words = path_words.union(method_words)
+                
+                # Check if all endpoint words are present in the combined words
+                if endpoint_words.issubset(combined_words):
+                    matches.append((path, method))
+
+        # If we have matches with all words, return only those
+        if matches:
+            return matches
+
+        # If no full matches, try partial matching
+        partial_matches = []
+        for path, methods in self.paths.items():
+            path_words = set(re.findall(r'\w+', path.lower()))
+            for method in methods.keys():
+                method_words = set(re.findall(r'\w+', method.lower()))
+                combined_words = path_words.union(method_words)
+                
+                # Check how many words match
+                matching_words = endpoint_words.intersection(combined_words)
+                if matching_words:
+                    partial_matches.append((path, method, len(matching_words)))
+
+        # Sort partial matches by number of matching words, descending
+        partial_matches.sort(key=lambda x: x[2], reverse=True)
+
+        # Return the paths and methods, without the count
+        return [(path, method) for path, method, _ in partial_matches]
+
+    def _prompt_user_for_selection(self, matches: List[Tuple[str, str]], endpoint : str) -> Optional[Tuple[str, str]]:
+        """
+        Prompt the user to select from multiple matching endpoints. Present the user 
+        with a numbered list of matching endpoints and prompt them to select one.
+        The user can also choose to cancel the selection.
+
+        Args:
+            - matches (List[Tuple[str, str]]): A list of tuples, where each tuple contains 
+                (path, method) of matching endpoints.
+            - endpoint (str): The original endpoint input, so that we can display it to the user.
+
+        Returns:
+            - Optional[Tuple[str, str]]: The selected (path, method) tuple if a selection 
+                was made, or None if the selection was cancelled.
+        """
+        print(f"Multiple matches found for {endpoint}. Please select one:")
+        for i, (path, method) in enumerate(matches, 1):
+            print(f"{i}. {method.upper()} {path}")
+        
+        while True:
+            try:
+                choice = int(input("Enter the number of your choice (or 0 to cancel): "))
+                if choice == 0:
+                    return None
+                if 1 <= choice <= len(matches):
+                    return matches[choice - 1]
+                print("Invalid choice. Please try again.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+    def _construct_doc_link(self, path: str, method: str) -> str:
+        """
+        Construct the documentation link for a given path and method. Creates a link
+        fragment that can be appended to the base documentation URL to navigate
+        directly to the specified endpoint.
+
+        Args:
+            - path (str): The API path.
+            - method (str): The HTTP method.
+
+        Returns:
+            - str: The documentation link fragment.
+        """
+        # Extract the tag (usually the first part of the path)
+        tag = path.split('/')[1].replace('_', ' ').title().replace(' ', '_')
+        
+        # Construct the operation ID
+        operation_id = f"{method}_{path[1:].replace('/', '_').replace('{', '').replace('}', '')}"
+
+        return f"#!/{tag}/{operation_id}"
+
+
     # @lru_cache(maxsize=None)
     def get_parameters(self, user_input: str) -> SafeDict:
         """
@@ -1311,7 +1480,7 @@ class APIParser:
                 'kwargs': encoded_kwargs,
             }
 
-            response = requests.post(f'http://{self.server_ip}:8000/execute', json=payload, verify=False)
+            response = requests.post(f'http://{self.server_ip}:{self.port}/{self.executable_endpoint}', json=payload, verify=False)
 
             try:
                 result = response.json()
