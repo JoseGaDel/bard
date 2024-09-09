@@ -593,7 +593,7 @@ class APIParser:
             token_data = response.json()
             
             # Save the new token
-            self.set_api_token(token = token_data.get('token'))
+            self._save_token(token = token_data.get('token'))
         except requests.exceptions.RequestException:
             self.logger.debug("Failed to authenticate using the API endpoint.")
             self._browser_authentication(username, password)
@@ -801,14 +801,9 @@ class APIParser:
         Args:
             - token (str): The API token.
             - expires_in (int, optional): The number of seconds until the token expires.
-                                        If not provided, the token will use the default set in teh attribute.
+                                        If not provided, the token will use the default set in the attribute.
         """
-        self.auth_token = token
-        if expires_in:
-            self.auth_expiry = datetime.now() + timedelta(seconds=expires_in)
-        else:
-            # Take the default expiration time from the class attribute
-            self.auth_expiry = datetime.now() + timedelta(seconds=self.token_lifetime)
+        self._save_token(token, expires_in)
 
     def _check_auth_required(self, path, method='get'):
         """Check if the API call requires authentication."""
@@ -816,10 +811,14 @@ class APIParser:
             return 'security' in self.paths[path][method]
         return False
     
-    def _save_token(self, token):
+    def _save_token(self, token, expires_in=None):
         """Save the authentication token with its expiration time."""
         self.auth_token = token
-        self.auth_expiry = datetime.now() + timedelta(seconds=self.token_lifetime)
+        if expires_in:
+            self.auth_expiry = datetime.now() + timedelta(seconds=expires_in)
+        else:
+            # If no expiration date is specified, take it from the class attributes
+            self.auth_expiry = datetime.now() + timedelta(seconds=self.token_lifetime)
         
         # Save token to file for persistence across sessions
         token_data = {
