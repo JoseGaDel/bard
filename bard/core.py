@@ -592,10 +592,8 @@ class APIParser:
             response.raise_for_status()
             token_data = response.json()
             
-            self.auth_token = token_data.get('token')
-            # Assume the token expires in 24 hours if not specified
-            expires_in = token_data.get('expires_in', 86400)
-            self.auth_expiry = datetime.now() + timedelta(seconds=expires_in)
+            # Save the new token
+            self.set_api_token(token = token_data.get('token'))
         except requests.exceptions.RequestException:
             self.logger.debug("Failed to authenticate using the API endpoint.")
             self._browser_authentication(username, password)
@@ -809,7 +807,7 @@ class APIParser:
         if expires_in:
             self.auth_expiry = datetime.now() + timedelta(seconds=expires_in)
         else:
-            # Tke the default expiration time from the class attribute
+            # Take the default expiration time from the class attribute
             self.auth_expiry = datetime.now() + timedelta(seconds=self.token_lifetime)
 
     def _check_auth_required(self, path, method='get'):
